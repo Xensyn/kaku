@@ -9,6 +9,9 @@ import { SettingsPage } from './components/settings/SettingsPage'
 import { DeckSettingsPage } from './components/settings/DeckSettingsPage'
 import { DeckStats } from './components/stats/DeckStats'
 import { InstallPrompt } from './components/pwa/InstallPrompt'
+import { SearchView } from './components/search/SearchView'
+import { AnkiImport } from './components/import/AnkiImport'
+import { startNotificationScheduler, isNotificationEnabled } from './lib/notifications'
 
 function App() {
   const { currentView, theme } = useAppStore()
@@ -17,6 +20,13 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  // Démarrer le planificateur de notifications si activé
+  useEffect(() => {
+    if (isNotificationEnabled()) {
+      startNotificationScheduler()
+    }
+  }, [])
 
   const renderView = () => {
     switch (currentView) {
@@ -34,6 +44,10 @@ function App() {
         return <DeckSettingsPage />
       case 'stats':
         return <DeckStats />
+      case 'search':
+        return <SearchView />
+      case 'import':
+        return <AnkiImport />
       default:
         return <DeckList />
     }

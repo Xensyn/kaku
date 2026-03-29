@@ -10,9 +10,15 @@ import { Header } from '../layout/Header'
 import { Button } from '../ui/Button'
 import type { Rating } from '../../types/review'
 
+// Formater un temps en secondes en chaîne lisible
+function formatEstimatedTime(seconds: number): string {
+  if (seconds < 60) return `~${Math.round(seconds)}s`
+  return `~${Math.round(seconds / 60)}min`
+}
+
 export function ReviewSession() {
   const { selectedDeckId, navigate } = useAppStore()
-  const { session, currentCard, intervals, startSession, endSession, flipCard, rateCard } = useReviewStore()
+  const { session, currentCard, intervals, newCardsInSession, startSession, endSession, flipCard, rateCard } = useReviewStore()
   const [totalCards, setTotalCards] = useState(0)
   const [sessionEnded, setSessionEnded] = useState(false)
   const [reviewedCount, setReviewedCount] = useState(0)
@@ -20,7 +26,16 @@ export function ReviewSession() {
   // Suivi des stats de session
   const statsRef = useRef<Record<Rating, number>>({ 1: 0, 2: 0, 3: 0, 4: 0 })
 
+  // Suivi du temps moyen par carte
+  const cardTimesRef = useRef<number[]>([])
+  const cardStartTimeRef = useRef<number>(Date.now())
+
   const handleRate = useCallback((rating: Rating) => {
+    // Enregistrer le temps passé sur cette carte
+    const elapsed = (Date.now() - cardStartTimeRef.current) / 1000
+    cardTimesRef.current.push(elapsed)
+    cardStartTimeRef.current = Date.now()
+
     statsRef.current[rating]++
     setReviewedCount((c) => c + 1)
     rateCard(rating)
@@ -47,17 +62,36 @@ export function ReviewSession() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [session, flipCard, handleRate])
 
-  // Démarrer la session au montage
+  // Démarrer la session au montage — seulement si aucune session n'est déjà active
+  // (cas où DeckBrowse a déjà appelé startSession ou startCramSession)
   useEffect(() => {
     if (!selectedDeckId) return
     setSessionEnded(false)
     setReviewedCount(0)
     statsRef.current = { 1: 0, 2: 0, 3: 0, 4: 0 }
-    startSession(selectedDeckId).then((count) => {
-      setTotalCards(count)
-      if (count === 0) setSessionEnded(true)
-    })
+    cardTimesRef.current = []
+    cardStartTimeRef.current = Date.now()
+
+    if (session) {
+      // Session déjà démarrée (depuis DeckBrowse)
+      setTotalCards(session.cards.length)
+    } else {
+      // Démarrage normal sans session pré-existante
+      startSession(selectedDeckId).then((count) => {
+        setTotalCards(count)
+        if (count === 0) setSessionEnded(true)
+        cardStartTimeRef.current = Date.now()
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDeckId])
+
+  // Réinitialiser le timer quand la carte change (après chaque notation)
+  useEffect(() => {
+    if (session && !session.isFlipped) {
+      cardStartTimeRef.current = Date.now()
+    }
+  }, [session?.currentIndex, session?.isFlipped])
 
   // Détecter la fin de session
   useEffect(() => {
@@ -71,11 +105,20 @@ export function ReviewSession() {
     navigate('home')
   }
 
+  // Calculer le temps estimé restant
+  const estimatedTimeStr = (() => {
+    if (!session || cardTimesRef.current.length === 0) return null
+    const avg = cardTimesRef.current.reduce((a, b) => a + b, 0) / cardTimesRef.current.length
+    const remaining = session.cards.length - session.currentIndex
+    const totalSeconds = avg * remaining
+    return formatEstimatedTime(totalSeconds)
+  })()
+
   // Fin de session ou pas de cartes
   if (sessionEnded || (totalCards === 0 && !session)) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Header title="Révision" showBack onBack={handleEnd} />
+        <Header title={session?.isCram ? 'Mode Cram' : 'Révision'} showBack onBack={handleEnd} />
         {totalCards === 0 ? (
           <div style={emptyStyle}>
             <RotateCcw size={48} strokeWidth={1.2} style={{ color: 'var(--text-muted)' }} />
@@ -97,6 +140,7 @@ export function ReviewSession() {
   const progress = session.currentIndex / session.cards.length
   const sessionCard = session.cards[session.currentIndex]
   const isReverse = sessionCard.direction === 'reverse'
+  const remainingCards = session.cards.length - session.currentIndex
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
@@ -110,12 +154,38 @@ export function ReviewSession() {
         <button style={closeButtonStyle} onClick={handleEnd}>
           <X size={20} />
         </button>
+
+        {/* Compteur + temps estimé */}
         <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
           {session.currentIndex + 1} / {session.cards.length}
         </span>
+        {estimatedTimeStr && (
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            {estimatedTimeStr}
+          </span>
+        )}
+
+        {/* Limite nouvelles cartes (mode non-cram) */}
+        {!session.isCram && newCardsInSession > 0 && (
+          <span style={newCardsBadgeStyle}>
+            {newCardsInSession}/{session.newCardsLimit} nouvelles
+          </span>
+        )}
+
+        {/* Badge Cram */}
+        {session.isCram && (
+          <span style={cramBadgeStyle}>Mode Cram</span>
+        )}
+
+        {/* Badge Inversé */}
         {isReverse && (
           <span style={reverseBadgeStyle}>Inversé</span>
         )}
+
+        {/* Cartes restantes */}
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+          {remainingCards} restante{remainingCards > 1 ? 's' : ''}
+        </span>
       </div>
 
       {/* Carte avec swipe */}
@@ -173,9 +243,10 @@ const progressBarStyle: CSSProperties = {
 const headerBarStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '12px',
+  gap: '8px',
   padding: '8px 12px',
   flexShrink: 0,
+  flexWrap: 'wrap',
 }
 
 const closeButtonStyle: CSSProperties = {
@@ -197,5 +268,23 @@ const reverseBadgeStyle: CSSProperties = {
   borderRadius: '8px',
   background: 'var(--warning-light)',
   color: 'var(--warning)',
+  fontWeight: 600,
+}
+
+const cramBadgeStyle: CSSProperties = {
+  fontSize: '11px',
+  padding: '2px 8px',
+  borderRadius: '8px',
+  background: 'var(--accent-light)',
+  color: 'var(--accent)',
+  fontWeight: 600,
+}
+
+const newCardsBadgeStyle: CSSProperties = {
+  fontSize: '11px',
+  padding: '2px 8px',
+  borderRadius: '8px',
+  background: 'var(--success-light)',
+  color: 'var(--success)',
   fontWeight: 600,
 }

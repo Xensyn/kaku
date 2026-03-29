@@ -1,7 +1,10 @@
-import { useState, useRef, type CSSProperties } from 'react'
-import { Play, Pause } from 'lucide-react'
+import { useState, useRef, useCallback, type CSSProperties } from 'react'
+import { Play, Pause, Volume2, VolumeX } from 'lucide-react'
+import { marked } from 'marked'
+import 'katex/dist/katex.min.css'
 import type { MediaBlock } from '../../types/card'
 import { useMediaUrl } from '../../db/useMediaUrl'
+import { renderMathInHtml } from '../../lib/mathRenderer'
 
 interface MediaBlockDisplayProps {
   block: MediaBlock
@@ -10,11 +13,7 @@ interface MediaBlockDisplayProps {
 export function MediaBlockDisplay({ block }: MediaBlockDisplayProps) {
   switch (block.type) {
     case 'text':
-      return (
-        <div style={textStyle}>
-          {block.textContent || '(vide)'}
-        </div>
-      )
+      return <TextDisplay content={block.textContent || ''} />
     case 'image':
       return <ImageDisplay mediaId={block.mediaId} />
     case 'audio':
@@ -26,6 +25,71 @@ export function MediaBlockDisplay({ block }: MediaBlockDisplayProps) {
     default:
       return null
   }
+}
+
+// Convertit le Markdown en HTML puis rend les formules LaTeX
+function parseContent(text: string): string {
+  if (!text) return ''
+  const html = marked.parse(text, { async: false }) as string
+  return renderMathInHtml(html)
+}
+
+function TextDisplay({ content }: { content: string }) {
+  const [isSpeaking, setIsSpeaking] = useState(false)
+
+  const handleSpeak = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      const synth = window.speechSynthesis
+      if (!synth) return
+
+      if (isSpeaking) {
+        synth.cancel()
+        setIsSpeaking(false)
+        return
+      }
+
+      // Supprimer le Markdown/HTML pour la synthèse vocale
+      const plainText = content
+        .replace(/\$\$[^$]+?\$\$/gs, 'formule')
+        .replace(/\$[^$\n]+?\$/g, 'formule')
+        .replace(/[*_`#>~\[\]()]/g, '')
+
+      const utterance = new SpeechSynthesisUtterance(plainText)
+      utterance.lang = 'fr-FR'
+      utterance.onend = () => setIsSpeaking(false)
+      utterance.onerror = () => setIsSpeaking(false)
+
+      synth.speak(utterance)
+      setIsSpeaking(true)
+    },
+    [content, isSpeaking]
+  )
+
+  const html = parseContent(content || '(vide)')
+
+  return (
+    <div style={textWrapperStyle}>
+      <div
+        className="markdown-body"
+        style={textStyle}
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: contenu local, pas d'entrée utilisateur externe
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {content && (
+        <button
+          onClick={handleSpeak}
+          style={{
+            ...ttsButtonStyle,
+            color: isSpeaking ? 'var(--accent)' : 'var(--text-muted)',
+          }}
+          title={isSpeaking ? 'Arrêter la lecture' : 'Lire à voix haute'}
+        >
+          {isSpeaking ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </button>
+      )}
+    </div>
+  )
 }
 
 function ImageDisplay({ mediaId }: { mediaId?: string }) {
@@ -91,12 +155,30 @@ function VideoDisplay({ mediaId }: { mediaId?: string }) {
   )
 }
 
+const textWrapperStyle: CSSProperties = {
+  position: 'relative',
+}
+
 const textStyle: CSSProperties = {
   fontSize: '20px',
   lineHeight: 1.5,
   textAlign: 'center',
-  whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
+}
+
+const ttsButtonStyle: CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '4px',
+  borderRadius: 'var(--radius-sm)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  transition: 'color var(--transition)',
 }
 
 const audioButtonStyle: CSSProperties = {

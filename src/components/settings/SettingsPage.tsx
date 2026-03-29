@@ -1,5 +1,5 @@
 import { useState, useEffect, type CSSProperties } from 'react'
-import { Moon, Sun, Info, Download, Upload, Shield, Clock } from 'lucide-react'
+import { Moon, Sun, Info, Download, Upload, Shield, Clock, Palette, Bell, BellOff, FileInput } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { db } from '../../db/database'
 import { Header } from '../layout/Header'
@@ -12,6 +12,15 @@ import {
   downloadLastBackup,
   type BackupMeta,
 } from '../../lib/autoBackup'
+import { ACCENT_COLORS, setAccentColor, getAccentColor } from '../../lib/theme'
+import {
+  isNotificationEnabled,
+  setNotificationEnabled,
+  requestNotificationPermission,
+  getNotificationPermission,
+  startNotificationScheduler,
+  stopNotificationScheduler,
+} from '../../lib/notifications'
 
 const INTERVAL_OPTIONS = [
   { label: '6 heures', value: 6 * 60 * 60 * 1000 },
@@ -22,12 +31,17 @@ const INTERVAL_OPTIONS = [
 ]
 
 export function SettingsPage() {
-  const { theme, toggleTheme } = useAppStore()
+  const { theme, toggleTheme, navigate } = useAppStore()
   const [importStatus, setImportStatus] = useState<string | null>(null)
   const [backupMeta, setBackupMeta] = useState<BackupMeta | null>(null)
   const [backupInterval, setBackupIntervalState] = useState(getBackupInterval())
   const [isPersistent, setIsPersistent] = useState<boolean | null>(null)
   const [backupRunning, setBackupRunning] = useState(false)
+  const [currentAccent, setCurrentAccent] = useState<string>(getAccentColor())
+
+  // Notifications
+  const [notifEnabled, setNotifEnabled] = useState(isNotificationEnabled())
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(getNotificationPermission())
 
   useEffect(() => {
     setBackupMeta(getLastBackupMeta())
@@ -152,6 +166,28 @@ export function SettingsPage() {
     setBackupIntervalState(value)
   }
 
+  const handleAccentChange = (hex: string) => {
+    setAccentColor(hex)
+    setCurrentAccent(hex)
+  }
+
+  const handleNotifToggle = async () => {
+    if (!notifEnabled) {
+      // Activer : demander la permission si nécessaire
+      const perm = await requestNotificationPermission()
+      setNotifPermission(perm)
+      if (perm === 'granted') {
+        setNotificationEnabled(true)
+        setNotifEnabled(true)
+        startNotificationScheduler()
+      }
+    } else {
+      setNotificationEnabled(false)
+      setNotifEnabled(false)
+      stopNotificationScheduler()
+    }
+  }
+
   const formatBackupDate = (date: string) => {
     const d = new Date(date)
     return d.toLocaleDateString('fr-FR', {
@@ -180,6 +216,66 @@ export function SettingsPage() {
             </div>
             <button style={toggleBtnStyle(theme === 'dark')} onClick={toggleTheme}>
               <div style={toggleKnobStyle(theme === 'dark')} />
+            </button>
+          </div>
+
+          {/* Couleur d'accent */}
+          <div style={{ ...rowStyle, flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Palette size={20} />
+              <span style={{ fontWeight: 500 }}>Couleur d'accent</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {ACCENT_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  title={c.label}
+                  onClick={() => handleAccentChange(c.value)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: c.value,
+                    border: currentAccent.toLowerCase() === c.value.toLowerCase()
+                      ? '3px solid var(--text-primary)'
+                      : '3px solid transparent',
+                    cursor: 'pointer',
+                    outline: currentAccent.toLowerCase() === c.value.toLowerCase()
+                      ? '2px solid ' + c.value
+                      : 'none',
+                    outlineOffset: '2px',
+                    transition: 'all var(--transition)',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div style={sectionStyle}>
+          <h3 style={sectionLabelStyle}>Notifications</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {notifEnabled ? <Bell size={20} /> : <BellOff size={20} />}
+              <div>
+                <div style={{ fontWeight: 500 }}>Rappels de révision</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {notifPermission === 'denied'
+                    ? 'Notifications bloquées par le navigateur'
+                    : notifPermission === 'granted'
+                      ? 'Permission accordée'
+                      : 'Permission non encore demandée'}
+                </div>
+              </div>
+            </div>
+            <button
+              style={toggleBtnStyle(notifEnabled)}
+              onClick={handleNotifToggle}
+              disabled={notifPermission === 'denied'}
+              aria-label={notifEnabled ? 'Désactiver les notifications' : 'Activer les notifications'}
+            >
+              <div style={toggleKnobStyle(notifEnabled)} />
             </button>
           </div>
         </div>
@@ -259,6 +355,15 @@ export function SettingsPage() {
               Importer
             </Button>
           </div>
+          <Button
+            variant="ghost"
+            fullWidth
+            onClick={() => navigate('import')}
+            style={{ border: '1px solid var(--border)', marginTop: '4px' }}
+          >
+            <FileInput size={16} />
+            Importer depuis Anki
+          </Button>
           {importStatus && (
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>
               {importStatus}

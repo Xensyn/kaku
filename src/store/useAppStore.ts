@@ -2,9 +2,11 @@
 
 import { create } from 'zustand'
 
-export type AppView = 'home' | 'review' | 'editor' | 'settings' | 'browse' | 'deck-settings' | 'stats'
+export type AppView = 'home' | 'review' | 'editor' | 'settings' | 'browse' | 'deck-settings' | 'stats' | 'search' | 'import'
 
 export type Theme = 'dark' | 'light'
+
+export type NavigationDirection = 'forward' | 'back'
 
 interface AppState {
   currentView: AppView
@@ -12,6 +14,7 @@ interface AppState {
   selectedDeckId: string | null
   editingCardId: string | null
   theme: Theme
+  navigationDirection: NavigationDirection
 
   navigate: (view: AppView) => void
   goBack: () => void
@@ -36,17 +39,20 @@ export const useAppStore = create<AppState>((set) => ({
   selectedDeckId: null,
   editingCardId: null,
   theme: loadTheme(),
+  navigationDirection: 'forward',
 
   navigate: (view) =>
     set((state) => ({
       currentView: view,
       previousView: state.currentView,
+      navigationDirection: 'forward',
     })),
 
   goBack: () =>
     set((state) => ({
       currentView: state.previousView,
       previousView: 'home',
+      navigationDirection: 'back',
     })),
 
   selectDeck: (deckId) => set({ selectedDeckId: deckId }),

@@ -14,6 +14,7 @@ interface CardStoreState {
   addTextBlock: (cardId: string, side: 'front' | 'back', text: string) => Promise<void>
   updateTextBlock: (cardId: string, side: 'front' | 'back', blockId: string, text: string) => Promise<void>
   removeBlock: (cardId: string, side: 'front' | 'back', blockId: string) => Promise<void>
+  moveCard: (cardId: string, targetDeckId: string) => Promise<void>
 }
 
 function createEmptySide(): CardSide {
@@ -103,5 +104,12 @@ export const useCardStore = create<CardStoreState>(() => ({
       [side]: { blocks },
       updatedAt: new Date().toISOString(),
     } as Partial<Card>)
+  },
+
+  moveCard: async (cardId, targetDeckId) => {
+    await db.cards.update(cardId, {
+      deckId: targetDeckId,
+      updatedAt: new Date().toISOString(),
+    })
   },
 }))

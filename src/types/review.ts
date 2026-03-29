@@ -35,4 +35,8 @@ export interface ReviewSession {
   startedAt: string
   isFlipped: boolean
   cardStartedAt: number // timestamp pour mesurer le temps de réponse
+  isCram: boolean
+  // Compteurs pour les limites journalières
+  newCardsLimit: number
+  reviewsLimit: number
 }

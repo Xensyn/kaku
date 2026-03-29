@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { Home, Plus, Settings } from 'lucide-react'
+import { Home, Plus, Search, Settings } from 'lucide-react'
 import { useAppStore, type AppView } from '../../store/useAppStore'
 
 interface NavItem {
@@ -11,6 +11,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { view: 'home', label: 'Accueil', icon: Home },
   { view: 'editor', label: 'Ajouter', icon: Plus },
+  { view: 'search', label: 'Recherche', icon: Search },
   { view: 'settings', label: 'Réglages', icon: Settings },
 ]
 
@@ -41,9 +42,9 @@ export function BottomNav() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: '2px',
-          minWidth: '64px',
+          minWidth: '56px',
           minHeight: 'var(--touch-min)',
-          padding: '6px 12px',
+          padding: '6px 8px',
           border: 'none',
           background: 'transparent',
           color: isActive ? 'var(--accent)' : 'var(--text-muted)',
