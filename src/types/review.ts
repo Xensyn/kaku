@@ -1,6 +1,6 @@
 // Types pour les révisions
 
-import type { SRSAlgorithm, SRSCardData } from './card'
+import type { SRSAlgorithm } from './card'
 
 export type Rating = 1 | 2 | 3 | 4 // Again, Hard, Good, Easy
 

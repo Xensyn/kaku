@@ -5,7 +5,6 @@ import { db } from '../db/database'
 import { getDescendantDeckIds } from '../db/hooks'
 import type { Card } from '../types/card'
 import type { Rating, ReviewSession, SessionCard } from '../types/review'
-import type { DeckSettings } from '../types/deck'
 import { scheduleReview, isDue, getIntervalPreview } from '../lib/srs-engine'
 
 interface ReviewStoreState {

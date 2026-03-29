@@ -9,7 +9,7 @@ import { Button } from '../ui/Button'
 import { IconButton } from '../ui/IconButton'
 import { MediaBlockEditor } from './MediaBlockEditor'
 import { createNewSRSData } from '../../lib/srs-engine'
-import type { MediaBlock, MediaBlockType, CardSide } from '../../types/card'
+import type { MediaBlock, MediaBlockType } from '../../types/card'
 
 export function CardEditor() {
   const { editingCardId, selectedDeckId, goBack } = useAppStore()

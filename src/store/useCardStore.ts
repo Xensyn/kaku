@@ -61,7 +61,7 @@ export const useCardStore = create<CardStoreState>(() => ({
     await db.cards.update(cardId, {
       [side]: cardSide,
       updatedAt: new Date().toISOString(),
-    })
+    } as Partial<Card>)
   },
 
   addTextBlock: async (cardId, side, text) => {
@@ -78,7 +78,7 @@ export const useCardStore = create<CardStoreState>(() => ({
     await db.cards.update(cardId, {
       [side]: { blocks },
       updatedAt: new Date().toISOString(),
-    })
+    } as Partial<Card>)
   },
 
   updateTextBlock: async (cardId, side, blockId, text) => {
@@ -90,7 +90,7 @@ export const useCardStore = create<CardStoreState>(() => ({
     await db.cards.update(cardId, {
       [side]: { blocks },
       updatedAt: new Date().toISOString(),
-    })
+    } as Partial<Card>)
   },
 
   removeBlock: async (cardId, side, blockId) => {
@@ -102,6 +102,6 @@ export const useCardStore = create<CardStoreState>(() => ({
     await db.cards.update(cardId, {
       [side]: { blocks },
       updatedAt: new Date().toISOString(),
-    })
+    } as Partial<Card>)
   },
 }))

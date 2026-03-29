@@ -71,7 +71,7 @@ export function applyFSRS(
 
   const now = new Date()
   const result = scheduler.repeat(fsrsCard, now)
-  const scheduled: RecordLogItem = result[ratingMap[rating]]
+  const scheduled: RecordLogItem = (result as unknown as Record<FSRSRating, RecordLogItem>)[ratingMap[rating]]
   const newCard = scheduled.card
 
   return {
@@ -105,7 +105,7 @@ export function fsrsPreview(
   const ratings: Rating[] = [1, 2, 3, 4]
   const preview = {} as Record<Rating, number>
   for (const r of ratings) {
-    const scheduled = result[ratingMap[r]]
+    const scheduled = (result as unknown as Record<FSRSRating, RecordLogItem>)[ratingMap[r]]
     const due = scheduled.card.due
     const diffMs = due.getTime() - now.getTime()
     const diffDays = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)))

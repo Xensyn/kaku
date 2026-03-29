@@ -8,7 +8,7 @@ interface DrawingCanvasProps {
   height?: number
 }
 
-export function DrawingCanvas({ width = 800, height = 500 }: DrawingCanvasProps) {
+export function DrawingCanvas({ width: _width = 800, height = 500 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const isDrawingRef = useRef(false)
@@ -173,7 +173,6 @@ function renderStroke(ctx: CanvasRenderingContext2D, stroke: DrawingStroke) {
   ctx.moveTo(points[0].x, points[0].y)
 
   for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]
     const curr = points[i]
 
     // Largeur modulée par la pression

@@ -37,7 +37,7 @@ export function ReviewSummary({ totalReviewed, stats, onClose }: ReviewSummaryPr
     maxWidth: '360px',
   }
 
-  const statBoxStyle = (rating: Rating): CSSProperties => ({
+  const statBoxStyle = (_rating: Rating): CSSProperties => ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
