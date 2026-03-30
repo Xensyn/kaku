@@ -33,6 +33,7 @@ const INTERVAL_OPTIONS = [
 export function SettingsPage() {
   const { theme, toggleTheme, navigate } = useAppStore()
   const [importStatus, setImportStatus] = useState<string | null>(null)
+  const [importRunning, setImportRunning] = useState(false)
   const [backupMeta, setBackupMeta] = useState<BackupMeta | null>(null)
   const [backupInterval, setBackupIntervalState] = useState(getBackupInterval())
   const [isPersistent, setIsPersistent] = useState<boolean | null>(null)
@@ -97,14 +98,21 @@ export function SettingsPage() {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
 
+      setImportRunning(true)
+      setImportStatus(null)
+
       try {
         const text = await file.text()
         const data = JSON.parse(text)
 
-        if (!data.version || !data.decks || !data.cards) {
+        if (!data.version || !Array.isArray(data.decks) || !Array.isArray(data.cards)) {
+          setImportRunning(false)
           setImportStatus('Format de fichier invalide')
           return
         }
+
+        const reviewLogs = Array.isArray(data.reviewLogs) ? data.reviewLogs : []
+        const mediaItems = Array.isArray(data.media) ? data.media : []
 
         await db.transaction('rw', [db.decks, db.cards, db.reviewLogs, db.media], async () => {
           await db.decks.clear()
@@ -112,30 +120,34 @@ export function SettingsPage() {
           await db.reviewLogs.clear()
           await db.media.clear()
 
-          if (data.decks.length > 0) await db.decks.bulkAdd(data.decks)
-          if (data.cards.length > 0) await db.cards.bulkAdd(data.cards)
-          if (data.reviewLogs.length > 0) await db.reviewLogs.bulkAdd(data.reviewLogs)
+          if (data.decks.length > 0) await db.decks.bulkPut(data.decks)
+          if (data.cards.length > 0) await db.cards.bulkPut(data.cards)
+          if (reviewLogs.length > 0) {
+            // Retirer les ids auto-incrémentés pour éviter les conflits
+            const logsWithoutId = reviewLogs.map(({ id: _id, ...rest }: Record<string, unknown>) => rest)
+            await db.reviewLogs.bulkAdd(logsWithoutId)
+          }
 
-          if (data.media) {
-            for (const m of data.media) {
-              if (m.base64 && m.mimeType) {
-                const binary = atob(m.base64)
-                const bytes = new Uint8Array(binary.length)
-                for (let i = 0; i < binary.length; i++) {
-                  bytes[i] = binary.charCodeAt(i)
-                }
-                const blob = new Blob([bytes], { type: m.mimeType })
-                await db.media.add({ ...m, blob, base64: undefined, mimeType: undefined })
-              } else {
-                await db.media.add(m)
+          for (const m of mediaItems) {
+            if (m.base64 && m.mimeType) {
+              const binary = atob(m.base64)
+              const bytes = new Uint8Array(binary.length)
+              for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i)
               }
+              const blob = new Blob([bytes], { type: m.mimeType })
+              const { base64: _b, mimeType: _mt, ...rest } = m
+              await db.media.put({ ...rest, blob })
             }
           }
         })
 
         setImportStatus(`Import réussi : ${data.decks.length} decks, ${data.cards.length} cartes`)
-      } catch {
-        setImportStatus('Erreur lors de l\'import')
+      } catch (err) {
+        console.error('Erreur import:', err)
+        setImportStatus(`Erreur lors de l'import : ${err instanceof Error ? err.message : 'erreur inconnue'}`)
+      } finally {
+        setImportRunning(false)
       }
     }
     input.click()
@@ -350,9 +362,9 @@ export function SettingsPage() {
               <Download size={16} />
               Exporter
             </Button>
-            <Button variant="secondary" fullWidth onClick={handleImport}>
+            <Button variant="secondary" fullWidth onClick={handleImport} disabled={importRunning}>
               <Upload size={16} />
-              Importer
+              {importRunning ? 'Import...' : 'Importer'}
             </Button>
           </div>
           <Button
